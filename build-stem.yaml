@@ -1,0 +1,52 @@
+---
+resources:
+  - name: groundupdb-stem
+    type: git
+    source:
+      uri: https://github.com/adamfowleruk/groundupdb.git
+      branch: stem
+
+  - name: cmake-image
+    type: registry-image
+    icon: docker
+    source:
+      repository: groundupdb/cmake-linux
+      tag: latest
+
+task-config: &nix-build-debug
+  platform: linux
+  inputs:
+    - name: groundupdb-stem
+  run:
+    path: /bin/sh
+    args:
+      - -c
+      - |
+        cd groundupdb-stem
+
+        git submodule update --init --recursive
+        cd highwayhash
+        make lib/libhighwayhash.a
+        cd ..
+        
+        mkdir build
+        cd build
+        cmake ..
+        cmake --build . --config Debug --target all -j
+
+        cd groundupdb-tests
+
+        ./groundupdb-tests
+
+jobs:
+  - name: stem-debug-linux
+    public: true
+    plan:
+      - get: groundupdb-stem
+        trigger: true
+      - get: cmake-image
+        trigger: true
+      - task: run-tests
+        image: cmake-image
+        config:
+          << : *nix-build-debug
