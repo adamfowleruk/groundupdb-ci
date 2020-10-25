@@ -1,0 +1,127 @@
+---
+  resources:
+    - name: groundupdb-trunk
+      type: git
+      source:
+        uri: https://github.com/adamfowleruk/groundupdb.git
+        branch: trunk
+  
+    - name: cmake-image
+      type: registry-image
+      icon: docker
+      source:
+        repository: groundupdb/cmake-linux
+        tag: latest
+  
+  task-config: &nix-build-trunk-debug
+    platform: linux
+    inputs:
+      - name: groundupdb-trunk
+    run:
+      path: /bin/sh
+      args:
+        - -c
+        - |
+          cd groundupdb-trunk
+  
+          git submodule update --init --recursive
+          cd highwayhash
+          make lib/libhighwayhash.a
+          cd ..
+          
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build . --config Debug --target all -j
+  
+          cd groundupdb-tests
+  
+          ./groundupdb-tests
+  
+  task-config: &nix-build-trunk-release
+    platform: linux
+    inputs:
+      - name: groundupdb-trunk
+    run:
+      path: /bin/sh
+      args:
+        - -c
+        - |
+          cd groundupdb-trunk
+  
+          git submodule update --init --recursive
+          cd highwayhash
+          make lib/libhighwayhash.a
+          cd ..
+          
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build . --config Release --target all -j
+  
+          cd groundupdb-tests
+  
+          ./groundupdb-tests
+  
+  task-config: &nix-perf-trunk-release
+    platform: linux
+    inputs:
+      - name: groundupdb-trunk
+    run:
+      path: /bin/sh
+      args:
+        - -c
+        - |
+          cd groundupdb-trunk
+  
+          git submodule update --init --recursive
+          cd highwayhash
+          make lib/libhighwayhash.a
+          cd ..
+          
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build . --config Release --target all -j
+  
+          cd groundupdb-tests
+  
+          ./groundupdb-tests [performance]
+  
+  jobs:
+    - name: test-trunk-debug-linux
+      public: true
+      plan:
+        - get: groundupdb-trunk
+          trigger: true
+        - get: cmake-image
+          trigger: true
+        - task: run-tests
+          image: cmake-image
+          config:
+            << : *nix-build-trunk-debug
+            
+    - name: test-trunk-release-linux
+      public: true
+      plan:
+        - get: groundupdb-trunk
+          trigger: true
+        - get: cmake-image
+          trigger: true
+        - task: run-tests
+          image: cmake-image
+          config:
+            << : *nix-build-trunk-release
+  
+    - name: perf-test-trunk-release-linux
+      public: true
+      plan:
+        - get: groundupdb-trunk
+          trigger: true
+        - get: cmake-image
+          trigger: true
+        - task: run-perf-tests
+          image: cmake-image
+          config:
+            << : *nix-perf-trunk-release
+  

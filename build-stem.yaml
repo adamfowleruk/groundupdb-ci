@@ -13,7 +13,7 @@ resources:
       repository: groundupdb/cmake-linux
       tag: latest
 
-task-config: &nix-build-debug
+task-config: &nix-build-stem-debug
   platform: linux
   inputs:
     - name: groundupdb-stem
@@ -38,8 +38,58 @@ task-config: &nix-build-debug
 
         ./groundupdb-tests
 
+task-config: &nix-build-stem-release
+  platform: linux
+  inputs:
+    - name: groundupdb-stem
+  run:
+    path: /bin/sh
+    args:
+      - -c
+      - |
+        cd groundupdb-stem
+
+        git submodule update --init --recursive
+        cd highwayhash
+        make lib/libhighwayhash.a
+        cd ..
+        
+        mkdir build
+        cd build
+        cmake ..
+        cmake --build . --config Release --target all -j
+
+        cd groundupdb-tests
+
+        ./groundupdb-tests
+
+task-config: &nix-perf-stem-release
+  platform: linux
+  inputs:
+    - name: groundupdb-stem
+  run:
+    path: /bin/sh
+    args:
+      - -c
+      - |
+        cd groundupdb-stem
+
+        git submodule update --init --recursive
+        cd highwayhash
+        make lib/libhighwayhash.a
+        cd ..
+        
+        mkdir build
+        cd build
+        cmake ..
+        cmake --build . --config Release --target all -j
+
+        cd groundupdb-tests
+
+        ./groundupdb-tests [performance]
+
 jobs:
-  - name: stem-debug-linux
+  - name: test-stem-debug-linux
     public: true
     plan:
       - get: groundupdb-stem
@@ -49,4 +99,28 @@ jobs:
       - task: run-tests
         image: cmake-image
         config:
-          << : *nix-build-debug
+          << : *nix-build-stem-debug
+
+  - name: test-stem-release-linux
+    public: true
+    plan:
+      - get: groundupdb-stem
+        trigger: true
+      - get: cmake-image
+        trigger: true
+      - task: run-tests
+        image: cmake-image
+        config:
+          << : *nix-build-stem-release
+
+  - name: perf-test-stem-release-linux
+    public: true
+    plan:
+      - get: groundupdb-stem
+        trigger: true
+      - get: cmake-image
+        trigger: true
+      - task: run-perf-tests
+        image: cmake-image
+        config:
+          << : *nix-perf-stem-release
